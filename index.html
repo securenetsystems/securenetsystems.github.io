@@ -1,0 +1,38 @@
+How to block Tor proxy users to your Linux server
+
+There are a number of reasons why a systems administrator might want to prevent Tor (The Onion Router) anonymity proxy users from visiting your servers. One of the main reasons is improved security, Tor has been known to be used by malicious black hat hackers. Here we show a way to make the server look offline to Tor users (by sending a TCP RST packet to close the connection).
+
+The Tor project helpfully provides a complete list of Tor exit nodes (the final hop of the Tor proxy chain) on the web site https://check.torproject.org/exit-addresses
+
+This list can be used to block the Tor exit nodes from reaching your Linux servers via simple iptables rules, some scripting and cron.
+
+First make a directory for the script and Tor exit node list we will be downloading and set suitable permissions:
+
+mkdir /blocktor ; chmod 700 /blocktor
+
+Create a script in /blocktor/addrules.sh that adds the Tor exit nodes to iptables to block:
+
+#!/bin/sh
+ 
+# download Tor exit nodes
+wget -O /blocktor/torexitnodes https://check.torproject.org/exit-addresses
+ 
+# add iptables rules to reject Tor exit nodes
+for torexit in `cat /blocktor/torexitnodes | grep ExitAddress | cut -d ' ' -f 2`
+do
+ /sbin/iptables -A INPUT -p tcp -s $torexit -j REJECT --reject-with tcp-reset
+done
+
+and now to update and add the fresh Tor exit node list to the firewall every hour add to your root crontab (crontab -e):
+
+0 * * * * /blocktor/addrules.sh
+
+Now correct the permissions and run the script:
+
+chmod 500 /blocktor/addrules.sh ; /blocktor/addrules.sh
+
+Lets test by downloading the Tor Browser from https://www.torproject.org/download/download-easy.html.en
+
+You should not be able to connect to your Linux server with the Tor Browser instead an “Unable to Connect” message should appear, however all other connections without Tor should work as expected.
+
+Something similar could also be used with other proxy lists, adding security to your Linux server.
